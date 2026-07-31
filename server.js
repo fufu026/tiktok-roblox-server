@@ -3,27 +3,32 @@ const { WebcastPushConnection } = require('tiktok-live-connector');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const TIKTOK_USERNAME = process.env.TIKTOK_USERNAME || '';
+const TIKTOK_USERNAME = process.env.TIKTOK_USERNAME || 'oriontxr';
 
 let usernameQueue = [];
 let isConnected = false;
 
 async function connectTikTok() {
-  if (!TIKTOK_USERNAME) {
-    console.log('❌ TIKTOK_USERNAME non défini !');
-    return;
-  }
+  console.log(`🔄 Tentative de connexion au live de @${TIKTOK_USERNAME}...`);
+  
+  const tiktok = new WebcastPushConnection(TIKTOK_USERNAME, {
+    processInitialData: false,
+    enableExtendedGiftInfo: false,
+    enableWebsocketUpgrade: true,
+    requestPollingIntervalMs: 2000,
+    sessionId: undefined
+  });
 
-  const tiktok = new WebcastPushConnection(TIKTOK_USERNAME);
-
-  tiktok.connect().then(() => {
+  try {
+    await tiktok.connect();
     isConnected = true;
     console.log(`✅ Connecté au live de @${TIKTOK_USERNAME}`);
-  }).catch(err => {
+  } catch(err) {
     isConnected = false;
-    console.log(`⚠️ Pas en live, retry dans 15s...`);
+    console.log(`⚠️ Pas en live ou erreur : ${err.message}, retry dans 15s...`);
     setTimeout(connectTikTok, 15000);
-  });
+    return;
+  }
 
   tiktok.on('chat', data => {
     const comment = data.comment.trim();
@@ -38,6 +43,10 @@ async function connectTikTok() {
     isConnected = false;
     console.log('🔌 Déconnecté, retry dans 15s...');
     setTimeout(connectTikTok, 15000);
+  });
+
+  tiktok.on('error', (err) => {
+    console.log(`❌ Erreur TikTok : ${err.message}`);
   });
 }
 
