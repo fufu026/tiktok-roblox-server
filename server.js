@@ -1,6 +1,5 @@
 const express = require('express');
-const TikTokLive = require('tiktok-live-connector');
-const WebcastPushConnection = TikTokLive.WebcastPushConnection || TikTokLive.default || TikTokLive;
+const { WebcastPushConnection } = require('tiktok-live-connector');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,26 +10,17 @@ let isConnected = false;
 
 async function connectTikTok() {
   console.log(`🔄 Tentative de connexion au live de @${TIKTOK_USERNAME}...`);
+  
+  const tiktok = new WebcastPushConnection(TIKTOK_USERNAME);
 
-  let tiktok;
-  try {
-    tiktok = new WebcastPushConnection(TIKTOK_USERNAME);
-  } catch(err) {
-    console.log(`❌ Erreur création connexion : ${err.message}, retry dans 15s...`);
-    setTimeout(connectTikTok, 15000);
-    return;
-  }
-
-  try {
-    await tiktok.connect();
+  tiktok.connect().then(() => {
     isConnected = true;
     console.log(`✅ Connecté au live de @${TIKTOK_USERNAME}`);
-  } catch(err) {
+  }).catch(err => {
     isConnected = false;
-    console.log(`⚠️ Erreur connexion : ${err.message}, retry dans 15s...`);
+    console.log(`⚠️ Erreur : ${err.message}, retry dans 15s...`);
     setTimeout(connectTikTok, 15000);
-    return;
-  }
+  });
 
   tiktok.on('chat', data => {
     const comment = data.comment.trim();
@@ -45,10 +35,6 @@ async function connectTikTok() {
     isConnected = false;
     console.log('🔌 Déconnecté, retry dans 15s...');
     setTimeout(connectTikTok, 15000);
-  });
-
-  tiktok.on('error', (err) => {
-    console.log(`❌ Erreur : ${err.message}`);
   });
 }
 
